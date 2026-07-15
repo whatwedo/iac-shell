@@ -16,6 +16,7 @@ RUN /tmp/container-scripts/install-packages.sh
 # Create user and workspace
 RUN useradd -u ${USER_ID} -m -s /bin/bash wwd-admin \
   && echo "wwd-admin ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers \
+  && mkdir -p $HOME/.history \
   && chown -R wwd-admin:wwd-admin $HOME
 RUN mkdir /opt/python-venv \
   && chown wwd-admin:wwd-admin /opt/python-venv

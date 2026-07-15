@@ -38,3 +38,14 @@ BASH
 cat >> /etc/bash.bashrc <<'BASH'
 eval $(ssh-agent -s) > /dev/null
 BASH
+
+# Persist bash history in the mounted history volume (see source.sh). Keep the
+# history file out of the ephemeral HOME, and append each command immediately so
+# nothing is lost when the --rm container exits.
+cat >> /etc/bash.bashrc <<'BASH'
+export HISTFILE="$HOME/.history/bash_history"
+export HISTSIZE=10000
+export HISTFILESIZE=100000
+shopt -s histappend
+PROMPT_COMMAND="history -a${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+BASH
