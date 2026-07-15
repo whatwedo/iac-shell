@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Debian's /etc/profile hardcodes PATH for login shells, clobbering the ENV PATH
+# set in the Containerfile (which is why ansible/molecule in the venv aren't
+# found). /etc/profile sources /etc/profile.d/*.sh AFTER that reset, so re-add
+# the venv and helper bin dirs here to make them win for login shells.
+cat > /etc/profile.d/wwd-path.sh <<'SH'
+export PATH="/opt/iac-shell/bin:/opt/python-venv/bin:$PATH"
+SH
+
 # Append PS1 and helper to global bashrc in a way safe for Docker build layering
 
 # Helper to print current git branch if in a git repository
@@ -22,8 +30,8 @@ export PS1='\[\e[1;37m\]WWD\[\e[0m\]$(__wwd_git_branch) \[\e[1;34m\]\w\[\e[0m\]\
 BASH
 
 cat >> /etc/bash.bashrc <<'BASH'
-source /opt/wwd-shell/bin/findup.sh
-source /opt/wwd-shell/bin/ssh.sh
+source /opt/iac-shell/bin/findup.sh
+source /opt/iac-shell/bin/ssh.sh
 BASH
 
 # Start ssh-agent

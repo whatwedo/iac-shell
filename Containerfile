@@ -26,8 +26,8 @@ ENV PATH="/opt/python-venv/bin:$PATH"
 # we're using hosts podman, so redirect the socket
 ENV CONTAINER_HOST=unix:///var/run/user/1000/podman/podman.sock
 
-COPY ./container/scripts/bin /opt/wwd-shell/bin
-ENV PATH="/opt/wwd-shell/bin:$PATH"
+COPY ./container/scripts/bin /opt/iac-shell/bin
+ENV PATH="/opt/iac-shell/bin:$PATH"
 ENV ANSIBLE_VAULT_PASSWORD_FILE="$HOME/.ansible_vault_pass.txt"
 
 WORKDIR $HOME
