@@ -10,7 +10,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   less \
   gnupg \
   git git-lfs \
-  dnsutils mtr iputils-ping ncat \
+  dnsutils mtr iputils-ping ncat iproute2 \
   podman podman-compose slirp4netns fuse-overlayfs uidmap \
   shellcheck shfmt \
   qrencode \
