@@ -35,6 +35,7 @@ wwd() {
     -v /var/run/user/$(id -u)/podman/podman.sock:/var/run/user/1000/podman/podman.sock \
     -v "$PWD":/workspace \
     -w /workspace \
+    -e HOST_WORKSPACE="$PWD" \
     -v /dev/bus/usb:/dev/bus/usb \
     -v iac-shell-history:/home/wwd-admin/.history \
     --cap-add=NET_RAW \

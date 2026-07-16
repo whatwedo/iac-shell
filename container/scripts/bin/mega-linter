@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run MegaLinter against the workspace from inside the iac-shell.
+#
+# `docker` here drives the HOST's Podman over the forwarded socket, so the
+# MegaLinter container is a sibling on the host and its bind-mount source is
+# resolved on the HOST filesystem. /workspace only exists inside this shell, so
+# we translate the path we want to lint into its host-side equivalent
+# ($HOST_WORKSPACE, exported by the wwd() launcher in source.sh) before mounting.
+#
+# Usage: mega-linter [DIR]
+#   DIR                 directory to lint (default: current directory)
+# Env:
+#   MEGALINTER_FLAVOR   image flavor to use (default: terraform)
+#   MEGALINTER_IMAGE    full image ref, overrides MEGALINTER_FLAVOR
+
+FLAVOR="${MEGALINTER_FLAVOR:-terraform}"
+IMAGE="${MEGALINTER_IMAGE:-ghcr.io/oxsecurity/megalinter-${FLAVOR}:v9}"
+
+if [ -z "${HOST_WORKSPACE:-}" ]; then
+  echo "mega-linter: HOST_WORKSPACE is not set — are you inside the iac-shell?" >&2
+  echo "  (it is exported by the wwd() launcher in source.sh)" >&2
+  exit 1
+fi
+
+# Map the container path to its host equivalent: /workspace -> $HOST_WORKSPACE
+lint_dir="${1:-$PWD}"
+case "$lint_dir" in
+  /workspace) host_dir="$HOST_WORKSPACE" ;;
+  /workspace/*) host_dir="$HOST_WORKSPACE/${lint_dir#/workspace/}" ;;
+  *)
+    echo "mega-linter: '$lint_dir' is outside /workspace; cannot map it to a host path" >&2
+    exit 1
+    ;;
+esac
+
+echo "mega-linter: linting $host_dir (flavor: $FLAVOR)" >&2
+exec docker run --platform linux/amd64 --rm \
+  -v "$host_dir":/tmp/lint:rw \
+  "$IMAGE"
