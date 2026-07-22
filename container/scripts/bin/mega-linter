@@ -3,44 +3,178 @@ set -euo pipefail
 
 # Run MegaLinter against the workspace from inside the iac-shell.
 #
-# `docker` here drives the HOST's Podman over the forwarded socket, so the
-# MegaLinter container is a sibling on the host and its bind-mount source is
-# resolved on the HOST filesystem. /workspace only exists inside this shell, so
-# we translate the path we want to lint into its host-side equivalent
-# ($HOST_WORKSPACE, exported by the wwd() launcher in source.sh) before mounting.
+# Path handling: `docker` here drives the HOST's Podman over the forwarded
+# socket, so the MegaLinter container is a sibling on the host and its bind-mount
+# source is resolved on the HOST filesystem. /workspace only exists inside this
+# shell, so we translate the lint path to its host-side equivalent
+# ($HOST_WORKSPACE, exported by wwd() in source.sh) before mounting.
 #
-# Usage: mega-linter [DIR]
+# Version parity: the image is pinned to whatever the repo's workflow runs, so
+# local linting matches CI. The workflow pins MegaLinter by commit SHA, e.g.
+#   uses: oxsecurity/megalinter/flavors/terraform@<sha> # v8.8.0
+# A git SHA is not a Docker tag, so we resolve it authoritatively by reading the
+# `image:` line of that action's action.yml AT that SHA (the exact image CI runs)
+# and re-point it at ghcr.io. If the SHA can't be resolved and no `# vX.Y.Z`
+# comment is present, we abort and ask for --latest rather than guess.
+#
+# Usage: mega-linter [--latest] [DIR]
+#   --latest               ignore the workflow pin and use the ':latest' tag
 #   DIR                    directory to lint (default: current directory)
-# Env:
-#   MEGALINTER_FLAVOR      image flavor to use (default: terraform)
-#   MEGALINTER_IMAGE       full image ref, overrides MEGALINTER_FLAVOR
+# Env (all optional):
+#   MEGALINTER_IMAGE       full image ref; overrides everything below
+#   MEGALINTER_FLAVOR      override the flavor detected in the workflow
+#   MEGALINTER_VERSION     use this tag instead of resolving from the workflow
+#   MEGALINTER_WORKFLOW    workflow file to read the pin from (default: auto)
 #   MEGALINTER_PIDS_LIMIT  container PID cap (default: -1 = unlimited)
 
-FLAVOR="${MEGALINTER_FLAVOR:-terraform}"
-IMAGE="${MEGALINTER_IMAGE:-ghcr.io/oxsecurity/megalinter-${FLAVOR}:v9}"
-# MegaLinter forks a lot of linter subprocesses. Rootless Podman caps each
-# container at pids.max=2048 by default, which the fork storm blows through
-# ("fork: retry: Resource temporarily unavailable"), so lift the cap here.
-PIDS_LIMIT="${MEGALINTER_PIDS_LIMIT:--1}"
+REGISTRY="ghcr.io/oxsecurity" # always pull from ghcr, never Docker Hub
+DEFAULT_FLAVOR="terraform"
 
-if [ -z "${HOST_WORKSPACE:-}" ]; then
-  echo "mega-linter: HOST_WORKSPACE is not set — are you inside the iac-shell?" >&2
-  echo "  (it is exported by the wwd() launcher in source.sh)" >&2
+die() {
+  echo "mega-linter: $*" >&2
   exit 1
+}
+
+usage() {
+  cat >&2 <<'USAGE'
+Usage: mega-linter [--latest] [DIR]
+  --latest   ignore the workflow pin and use the ':latest' image tag
+  DIR        directory to lint (default: current directory)
+USAGE
+}
+
+# Read the docker image a pinned MegaLinter action runs, straight from its
+# action.yml at the given git ref. $1 = action subpath (e.g. "flavors/terraform"
+# or "" for the root action), $2 = ref (commit SHA or branch). Echoes the image
+# ref (e.g. oxsecurity/megalinter-terraform:v8.8.0); returns non-zero on failure.
+resolve_action_image() {
+  local subpath="$1" ref="$2" url yaml img
+  url="https://raw.githubusercontent.com/oxsecurity/megalinter/${ref}/${subpath:+${subpath}/}action.yml"
+  yaml="$(curl -fsSL --max-time 20 "$url" 2>/dev/null)" || return 1
+  img="$(printf '%s\n' "$yaml" |
+    sed -nE "s#^[[:space:]]*image:[[:space:]]*[\"']?docker://([^\"'[:space:]]+).*#\1#p" |
+    head -n1)"
+  [ -n "$img" ] || return 1
+  printf '%s\n' "$img"
+}
+
+[ -n "${HOST_WORKSPACE:-}" ] ||
+  die "HOST_WORKSPACE is not set — are you inside the iac-shell? (exported by wwd() in source.sh)"
+
+# --- Parse args ---------------------------------------------------------------
+use_latest=false
+lint_dir=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --latest) use_latest=true ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      [ $# -gt 0 ] && lint_dir="$1"
+      break
+      ;;
+    -*)
+      usage
+      die "unknown option: $1"
+      ;;
+    *) [ -z "$lint_dir" ] || die "unexpected extra argument: $1" && lint_dir="$1" ;;
+  esac
+  shift
+done
+lint_dir="${lint_dir:-$PWD}"
+
+# --- Locate the MegaLinter pin in the repo workflow (for flavor + version) ----
+wf="${MEGALINTER_WORKFLOW:-}"
+[ -n "$wf" ] || wf="$(grep -rlE 'oxsecurity/megalinter' /workspace/.github/workflows 2>/dev/null | head -n1 || true)"
+wf_line=""
+if [ -n "$wf" ] && [ -r "$wf" ]; then
+  wf_line="$(grep -E 'uses:[[:space:]]*oxsecurity/megalinter' "$wf" | head -n1 || true)"
+  [ -n "$wf_line" ] || wf_line="$(grep -E 'oxsecurity/megalinter' "$wf" | head -n1 || true)"
 fi
 
-# Map the container path to its host equivalent: /workspace -> $HOST_WORKSPACE
-lint_dir="${1:-$PWD}"
+# flavor: env override > workflow flavors/<x> > default
+flavor="${MEGALINTER_FLAVOR:-}"
+if [ -z "$flavor" ] && [ -n "$wf_line" ]; then
+  flavor="$(printf '%s\n' "$wf_line" | sed -nE 's#.*oxsecurity/megalinter/flavors/([A-Za-z0-9_-]+).*#\1#p')"
+fi
+
+# image repository name (flavored vs. full), always under $REGISTRY
+if [ -n "$flavor" ]; then
+  repo="megalinter-${flavor}"
+elif [ -n "$wf_line" ] && printf '%s' "$wf_line" | grep -qE 'oxsecurity/megalinter@'; then
+  repo="megalinter" # workflow uses the non-flavored full image
+else
+  repo="megalinter-${DEFAULT_FLAVOR}" # nothing to go on -> default flavor
+fi
+
+# --- Resolve the image --------------------------------------------------------
+# Precedence: MEGALINTER_IMAGE > --latest > MEGALINTER_VERSION > workflow pin.
+IMAGE="${MEGALINTER_IMAGE:-}"
+src="env MEGALINTER_IMAGE"
+
+if [ -z "$IMAGE" ] && [ "$use_latest" = true ]; then
+  IMAGE="$REGISTRY/$repo:latest"
+  src="--latest"
+fi
+
+if [ -z "$IMAGE" ] && [ -n "${MEGALINTER_VERSION:-}" ]; then
+  IMAGE="$REGISTRY/$repo:${MEGALINTER_VERSION}"
+  src="env MEGALINTER_VERSION"
+fi
+
+if [ -z "$IMAGE" ] && [ -n "$wf_line" ]; then
+  ref="$(printf '%s\n' "$wf_line" | sed -nE 's#.*oxsecurity/megalinter[^@[:space:]]*@([^[:space:]]+).*#\1#p')"
+  subpath="$(printf '%s\n' "$wf_line" | sed -nE 's#.*(oxsecurity/megalinter/flavors/[A-Za-z0-9_-]+).*#\1#p')"
+  subpath="${subpath#oxsecurity/megalinter/}"
+  short_ref="${wf#/workspace/}"
+
+  case "$ref" in
+    v[0-9]*)
+      # ref is itself a version tag -> use directly, on ghcr (offline)
+      IMAGE="$REGISTRY/$repo:$ref"
+      src="$short_ref (@$ref)"
+      ;;
+    ?*)
+      # ref is a commit SHA (or branch): read the exact image the pinned action
+      # runs from its action.yml at that ref, then re-point it at ghcr.
+      resolved="$(resolve_action_image "$subpath" "$ref" || true)"
+      case "$resolved" in
+        *:*)
+          IMAGE="$REGISTRY/$repo:${resolved##*:}"
+          src="$short_ref (action.yml @${ref:0:12})"
+          ;;
+        *)
+          # offline fallback: the '# vX.Y.Z' comment beside the pin
+          ver="$(printf '%s\n' "$wf_line" | sed -nE 's/.*#[[:space:]]*v?([0-9][0-9A-Za-z.-]*).*/v\1/p')"
+          if [ -n "$ver" ]; then
+            IMAGE="$REGISTRY/$repo:$ver"
+            src="$short_ref (# $ver comment)"
+          fi
+          ;;
+      esac
+      ;;
+  esac
+fi
+
+[ -n "$IMAGE" ] ||
+  die "could not determine the MegaLinter version from the workflow
+  (no version tag, no resolvable SHA, no '# vX.Y.Z' comment).
+  Re-run with --latest to use the latest image: $REGISTRY/$repo:latest"
+
+PIDS_LIMIT="${MEGALINTER_PIDS_LIMIT:--1}"
+
+# --- Map the container lint path to its host equivalent -----------------------
 case "$lint_dir" in
   /workspace) host_dir="$HOST_WORKSPACE" ;;
   /workspace/*) host_dir="$HOST_WORKSPACE/${lint_dir#/workspace/}" ;;
-  *)
-    echo "mega-linter: '$lint_dir' is outside /workspace; cannot map it to a host path" >&2
-    exit 1
-    ;;
+  *) die "'$lint_dir' is outside /workspace; cannot map it to a host path" ;;
 esac
 
-echo "mega-linter: linting $host_dir (flavor: $FLAVOR)" >&2
+echo "mega-linter: image $IMAGE ($src)" >&2
+echo "mega-linter: lint  $host_dir" >&2
 exec docker run --platform linux/amd64 --rm \
   --pids-limit="$PIDS_LIMIT" \
   -v "$host_dir":/tmp/lint:rw \
