@@ -10,13 +10,18 @@ set -euo pipefail
 # ($HOST_WORKSPACE, exported by the wwd() launcher in source.sh) before mounting.
 #
 # Usage: mega-linter [DIR]
-#   DIR                 directory to lint (default: current directory)
+#   DIR                    directory to lint (default: current directory)
 # Env:
-#   MEGALINTER_FLAVOR   image flavor to use (default: terraform)
-#   MEGALINTER_IMAGE    full image ref, overrides MEGALINTER_FLAVOR
+#   MEGALINTER_FLAVOR      image flavor to use (default: terraform)
+#   MEGALINTER_IMAGE       full image ref, overrides MEGALINTER_FLAVOR
+#   MEGALINTER_PIDS_LIMIT  container PID cap (default: -1 = unlimited)
 
 FLAVOR="${MEGALINTER_FLAVOR:-terraform}"
 IMAGE="${MEGALINTER_IMAGE:-ghcr.io/oxsecurity/megalinter-${FLAVOR}:v9}"
+# MegaLinter forks a lot of linter subprocesses. Rootless Podman caps each
+# container at pids.max=2048 by default, which the fork storm blows through
+# ("fork: retry: Resource temporarily unavailable"), so lift the cap here.
+PIDS_LIMIT="${MEGALINTER_PIDS_LIMIT:--1}"
 
 if [ -z "${HOST_WORKSPACE:-}" ]; then
   echo "mega-linter: HOST_WORKSPACE is not set — are you inside the iac-shell?" >&2
@@ -37,5 +42,6 @@ esac
 
 echo "mega-linter: linting $host_dir (flavor: $FLAVOR)" >&2
 exec docker run --platform linux/amd64 --rm \
+  --pids-limit="$PIDS_LIMIT" \
   -v "$host_dir":/tmp/lint:rw \
   "$IMAGE"
