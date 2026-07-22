@@ -41,3 +41,19 @@ also symlinked to `/var/run/docker.sock` for tools that hardcode that path.
 ### Helper Commands
 
 **go**: does `ssh` and `sudo su -` in one single command, usage: `go my-server`
+
+## Open Source ❤️
+
+<p align="left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".assets/whatwedo-logo-white.svg">
+    <source media="(prefers-color-scheme: light)" srcset=".assets/whatwedo-logo-black.svg">
+    <img alt="whatwedo" src=".assets/whatwedo-logo-black.svg" width="280">
+  </picture>
+</p>
+
+We love [whatwedo](https://whatwedo.ch) — a software studio in Bern, Switzerland,
+fighting the good fight against bad software. But here's the thing: we also love
+**open source**.
+
+Curious what else we've been building in the open? → **[github.com/whatwedo](https://github.com/whatwedo)**
