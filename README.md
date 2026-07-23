@@ -18,7 +18,7 @@ tbd
 
 `source <(curl -s https://raw.githubusercontent.com/whatwedo/iac-shell/refs/heads/main/source.sh)`
 
-provides the `wwd` command. You might want to add it to your `.bashrc`.
+provides the `iac` command. You might want to add it to your `.bashrc`.
 
 ## Tools
 

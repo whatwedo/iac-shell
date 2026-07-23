@@ -1,6 +1,6 @@
-# To use: source wwd.sh in your shell, then run: wwd
+# To use: source source.sh in your shell, then run: iac
 
-wwd() {
+iac() {
   local pull_flag=""
   local podman_args=()
 
@@ -37,7 +37,7 @@ wwd() {
     -w /workspace \
     -e HOST_WORKSPACE="$PWD" \
     -v /dev/bus/usb:/dev/bus/usb \
-    -v iac-shell-history:/home/wwd-admin/.history \
+    -v iac-shell-history:/home/iac-admin/.history \
     --cap-add=NET_RAW \
     --network=host \
     --tmpfs /tmp \

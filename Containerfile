@@ -1,9 +1,9 @@
 FROM debian:13
 
-ENV HOME=/home/wwd-admin
+ENV HOME=/home/iac-admin
 ARG USER_ID=1000
 ENV ANSIBLE_NO_LOG=false
-ENV USER=wwd-admin
+ENV USER=iac-admin
 ENV USER_ID=${USER_ID}
 
 # Copy helper scripts and make executable
@@ -14,12 +14,12 @@ RUN chmod -R +x /tmp/container-scripts
 RUN /tmp/container-scripts/install-packages.sh
 
 # Create user and workspace
-RUN useradd -u ${USER_ID} -m -s /bin/bash wwd-admin \
-  && echo "wwd-admin ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers \
+RUN useradd -u ${USER_ID} -m -s /bin/bash iac-admin \
+  && echo "iac-admin ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers \
   && mkdir -p $HOME/.history \
-  && chown -R wwd-admin:wwd-admin $HOME
+  && chown -R iac-admin:iac-admin $HOME
 RUN mkdir /opt/python-venv \
-  && chown wwd-admin:wwd-admin /opt/python-venv
+  && chown iac-admin:iac-admin /opt/python-venv
 
 # Configure bash prompt and aliases via script
 RUN /tmp/container-scripts/setup-shell.sh
@@ -38,7 +38,7 @@ COPY ./container/scripts/bin /opt/iac-shell/bin
 ENV PATH="/opt/iac-shell/bin:$PATH"
 
 WORKDIR $HOME
-USER wwd-admin
+USER iac-admin
 
 RUN /tmp/container-scripts/install-ansible.sh
 

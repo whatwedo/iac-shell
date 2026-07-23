@@ -7,7 +7,7 @@ set -euo pipefail
 # socket, so the MegaLinter container is a sibling on the host and its bind-mount
 # source is resolved on the HOST filesystem. /workspace only exists inside this
 # shell, so we translate the lint path to its host-side equivalent
-# ($HOST_WORKSPACE, exported by wwd() in source.sh) before mounting.
+# ($HOST_WORKSPACE, exported by iac() in source.sh) before mounting.
 #
 # Version parity: the image is pinned to whatever the repo's workflow runs, so
 # local linting matches CI. The workflow pins MegaLinter by commit SHA, e.g.
@@ -59,7 +59,7 @@ resolve_action_image() {
 }
 
 [ -n "${HOST_WORKSPACE:-}" ] ||
-  die "HOST_WORKSPACE is not set — are you inside the iac-shell? (exported by wwd() in source.sh)"
+  die "HOST_WORKSPACE is not set — are you inside the iac-shell? (exported by iac() in source.sh)"
 
 # --- Parse args ---------------------------------------------------------------
 use_latest=false
