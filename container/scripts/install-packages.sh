@@ -23,14 +23,23 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   lsb-release \
   python3 python3-pip python3-venv build-essential
 
-# NodeJS 24
-curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-apt-get install -y --no-install-recommends nodejs
+install -m 0755 -d /etc/apt/keyrings
+
+# NodeJS 24 — the NodeSource apt repo is registered by hand rather than by
+# piping their setup script into a root shell. apt then verifies every package
+# against the repo signing key below.
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+  -o /etc/apt/keyrings/nodesource.asc
+chmod a+r /etc/apt/keyrings/nodesource.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/nodesource.asc] \
+  https://deb.nodesource.com/node_24.x nodistro main" \
+  >/etc/apt/sources.list.d/nodesource.list
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs
 
 # Docker CLI — a thin client that talks to the host's podman through the
 # forwarded, Docker-API-compatible socket (DOCKER_HOST is set in the
 # Containerfile), the same way podman uses CONTAINER_HOST. No daemon runs here.
-install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 chmod a+r /etc/apt/keyrings/docker.asc
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
@@ -49,9 +58,6 @@ curl -LO "https://dl.k8s.io/$(curl -L -s https://dl.k8s.io/release/stable.txt)/b
 echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
 install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 rm kubectl kubectl.sha256
-
-# Install latest Helm
-curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 # Install latest stable Neovim
 NVIM_TAG=$(curl -fsSL "https://api.github.com/repos/neovim/neovim/releases/latest" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": "\(.*\)".*/\1/')

@@ -12,13 +12,45 @@ shell in a container with tools for managing our infrastructure:
 
 ## Setup
 
-tbd
+Clone the repository, then source `source.sh` from your local clone:
+
+```sh
+git clone https://github.com/whatwedo/iac-shell.git ~/git/whatwedo/iac-shell.git
+source ~/git/whatwedo/iac-shell.git/source.sh
+```
+
+Any path works — `~/git/whatwedo/iac-shell.git` as an example
+
+To get the `iac` command in every shell, add the `source` line to your
+`~/.bashrc`:
+
+```sh
+echo 'source ~/git/whatwedo/iac-shell.git/source.sh' >> ~/.bashrc
+```
+
+Keep it up to date with:
+
+```sh
+git -C ~/git/whatwedo/iac-shell.git pull
+```
 
 ## Usage
 
-`source <(curl -s https://raw.githubusercontent.com/whatwedo/iac-shell/refs/heads/main/source.sh)`
+`iac` opens the shell. Your current directory is mounted at `/workspace` inside
+it, so run it from the repository you want to work on:
 
-provides the `iac` command. You might want to add it to your `.bashrc`.
+```sh
+cd ~/git/whatwedo/some-infra-repo
+iac
+```
+
+Pass `--pull` to fetch the latest image before starting:
+
+```sh
+iac --pull
+```
+
+Arguments after `--` are passed straight through to `podman run`.
 
 ## Tools
 

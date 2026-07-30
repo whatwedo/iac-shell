@@ -1,4 +1,5 @@
-# To use: source source.sh in your shell, then run: iac
+# Source this file from your clone of the repository, then run: iac
+# See the Setup section in README.md.
 
 iac() {
   local pull_flag=""
