@@ -75,7 +75,13 @@ Pass `--pull` to fetch the latest image before starting:
 iac --pull
 ```
 
-Arguments after `--` are passed straight through to `podman run`.
+Arguments after `--` are passed straight through to `podman run`. They land just
+before the image name, so they can also override the defaults `iac` sets:
+
+```sh
+iac -- -v /srv/backups:/srv/backups:ro   # mount something extra
+iac -- -w /workspace/roles               # start somewhere other than /workspace
+```
 
 ## Tools
 
