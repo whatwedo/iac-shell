@@ -3,6 +3,9 @@
 
 iac() {
   local pull_flag=""
+  # Extra flags for `podman run`, collected here and expanded just before the
+  # image name below — last, so they override the defaults set there (podman
+  # keeps the last value for single-value options such as -w or --network).
   local podman_args=()
 
   while [ $# -gt 0 ]; do
@@ -70,5 +73,6 @@ iac() {
     --network=host \
     --tmpfs /tmp \
     --userns=keep-id:uid=$(id -u),gid=$(id -g) \
+    "${podman_args[@]}" \
     ghcr.io/whatwedo/iac-shell:latest bash --login
 }
