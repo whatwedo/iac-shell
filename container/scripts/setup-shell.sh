@@ -34,10 +34,25 @@ source /opt/iac-shell/bin/findup.sh
 source /opt/iac-shell/bin/ssh.sh
 BASH
 
-# Start ssh-agent
+# Start ssh-agent, unless one is already reachable. `ssh-add -K` loads the
+# YubiKey's resident keys into it.
 cat >> /etc/bash.bashrc <<'BASH'
-eval $(ssh-agent -s) > /dev/null
+[ -S "${SSH_AUTH_SOCK:-}" ] || eval $(ssh-agent -s) > /dev/null
 BASH
+
+# Use the 1Password SSH agent by default; iac() mounts its socket. A host can opt
+# back out with `IdentityAgent SSH_AUTH_SOCK`. HOME is ephemeral, so this lives in /etc.
+mkdir -p /etc/ssh/ssh_config.d
+cat > /etc/ssh/ssh_config.d/10-1password.conf <<CONF
+Host *
+  IdentityAgent ${HOME}/.1password/agent.sock
+CONF
+
+# Debian ships this Include, but don't rely on it. It must come first — ssh_config
+# keeps the first value it finds for each keyword.
+if ! grep -qE '^[[:space:]]*Include[[:space:]]+/etc/ssh/ssh_config\.d/\*\.conf' /etc/ssh/ssh_config; then
+  sed -i '1i Include /etc/ssh/ssh_config.d/*.conf' /etc/ssh/ssh_config
+fi
 
 # Persist bash history in the mounted history volume (see source.sh). Keep the
 # history file out of the ephemeral HOME, and append each command immediately so

@@ -49,6 +49,17 @@ apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   docker-ce-cli docker-compose-plugin
 
+# 1Password CLI — reads secrets; authenticated by OP_SERVICE_ACCOUNT_TOKEN, which
+# iac() passes in. The repo is keyed on architecture, not on the Debian codename.
+curl -fsSL https://downloads.1password.com/linux/keys/1password.asc \
+  | gpg --dearmor -o /etc/apt/keyrings/1password.gpg
+chmod a+r /etc/apt/keyrings/1password.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/1password.gpg] \
+  https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
+  >/etc/apt/sources.list.d/1password.list
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends 1password-cli
+
 # npm global tools
 npm install -g prettier
 
