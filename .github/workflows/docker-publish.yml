@@ -4,34 +4,137 @@ on:
   push:
     branches:
       - main
+    # A pin bump touches only source.sh, which is never copied into the image.
+    # Ignoring these paths keeps "merge bump PR -> build -> open bump PR" from
+    # looping, and stops doc-only commits from rebuilding.
+    paths-ignore:
+      - "source.sh"
+      - "README.md"
+      - "LICENSE"
+      - ".assets/**"
   schedule:
     # Runs at 02:00 UTC every Tuesday.
     - cron: "0 2 * * 2"
+  workflow_dispatch:
+
+concurrency:
+  group: build-and-push
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/whatwedo/iac-shell
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # push the pin-bump branch
       packages: write
+      pull-requests: write # open the pin-bump PR
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install Podman
         run: |
           sudo apt-get update
-          sudo apt-get install -y podman
+          # skopeo answers "does this tag already exist" without pulling the image
+          sudo apt-get install -y podman skopeo
 
       - name: Log in to GitHub Container Registry
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "${{ secrets.GITHUB_TOKEN }}" |
+            podman login ghcr.io -u ${{ github.actor }} --password-stdin --authfile "$RUNNER_TEMP/auth.json"
+
+      - name: Compute the immutable tag
+        id: tags
+        run: |
+          # Date, commit and build number: says when it was built, from what, and
+          # by which run. This is what a rollback points at, so it must never be
+          # reused — the run number keeps two builds of the same commit on the
+          # same day apart, and the guard below catches a re-run of one run.
+          tag="$(date -u +%Y-%m-%d)-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}"
+          if skopeo inspect --raw --authfile "$RUNNER_TEMP/auth.json" "docker://$IMAGE:$tag" >/dev/null 2>&1; then
+            echo "::error::$IMAGE:$tag already exists — refusing to overwrite a tag someone may be pinned to"
+            exit 1
+          fi
+          echo "immutable=$tag" >>"$GITHUB_OUTPUT"
 
       - name: Build Container image
         run: |
-          podman build -t ghcr.io/whatwedo/iac-shell:latest .
+          podman build \
+            -t "$IMAGE:${{ steps.tags.outputs.immutable }}" \
+            -t "$IMAGE:latest" \
+            .
 
       - name: Push Container image
+        id: push
         run: |
-          podman push ghcr.io/whatwedo/iac-shell:latest
+          tag="${{ steps.tags.outputs.immutable }}"
+          # Keep the digest file out of the checkout: the pin bump below commits
+          # from this working tree.
+          podman push --authfile "$RUNNER_TEMP/auth.json" \
+            --digestfile "$RUNNER_TEMP/digest.txt" "$IMAGE:$tag"
+          podman push --authfile "$RUNNER_TEMP/auth.json" "$IMAGE:latest"
+          digest="$(cat "$RUNNER_TEMP/digest.txt")"
+          # tag@digest: readable *and* immutable. The tag says which build this
+          # is, the digest is what the pin actually resolves to.
+          echo "ref=$IMAGE:$tag@$digest" >>"$GITHUB_OUTPUT"
+          {
+            echo "### Image pushed"
+            echo
+            echo '```'
+            echo "$IMAGE:$tag@$digest"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Bump the image pin in source.sh
+        id: pin
+        run: |
+          new_ref="${{ steps.push.outputs.ref }}"
+          current="$(sed -nE 's/.*local default_image="([^"]*)".*# IMAGE_PIN.*/\1/p' source.sh)"
+          if [ -z "$current" ]; then
+            echo "::error file=source.sh::the '# IMAGE_PIN' marker line is gone — the pin cannot be bumped"
+            exit 1
+          fi
+          if [ "$current" = "$new_ref" ]; then
+            echo "pin already at $new_ref"
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          sed -i -E "s|^([[:space:]]*local default_image=\")[^\"]*(\".*# IMAGE_PIN.*)$|\1${new_ref}\2|" source.sh
+          if ! grep -qF "$new_ref" source.sh; then
+            echo "::error file=source.sh::rewriting the pin left source.sh unchanged"
+            exit 1
+          fi
+          bash -n source.sh
+          echo "previous=$current" >>"$GITHUB_OUTPUT"
+          echo "changed=true" >>"$GITHUB_OUTPUT"
+
+      - name: Open the pin bump PR
+        if: steps.pin.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          branch=chore/image-pin
+          tag="${{ steps.tags.outputs.immutable }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "chore: bump image pin to $tag"
+          # Force: an older unmerged bump PR is superseded by this build.
+          git push --force origin "$branch"
+          if [ -z "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+            gh pr create --base main --head "$branch" \
+              --title "chore: bump image pin to $tag" \
+              --body "$(printf '%s\n' \
+                "Built from \`${GITHUB_SHA}\` on $(date -u +%Y-%m-%d)." \
+                "" \
+                "    from: ${{ steps.pin.outputs.previous }}" \
+                "      to: ${{ steps.push.outputs.ref }}" \
+                "" \
+                "Until this merges everyone keeps running the previously pinned image." \
+                "After merging, \`git pull\` the clone to pick it up — or check the" \
+                "clone out at an older commit and re-source \`source.sh\` to go back.")"
+          fi

@@ -2,6 +2,11 @@
 # See the Setup section in README.md.
 
 iac() {
+  # The image this clone runs. Bumped by the build workflow's pin PR, which finds
+  # this line by the IMAGE_PIN marker — keep it.
+  local default_image="ghcr.io/whatwedo/iac-shell@sha256:b0489bf67fcb3fbd145f54ec16bfbbb5a576861c81e6114baead840c1fa295f7" # IMAGE_PIN
+  local image="${IAC_IMAGE_REF:-$default_image}"
+
   local pull_flag=""
   local podman_args=()
 
@@ -52,6 +57,10 @@ iac() {
 
   systemctl --user start podman.socket
 
+  if [ -n "${IAC_IMAGE_REF:-}" ]; then
+    echo "iac: using overridden image $image" >&2
+  fi
+
   # The container runs with --rm, so its HOME is ephemeral and bash history
   # would be lost on exit. Persist it in a dedicated podman named volume (auto
   # created on first run) that lives only inside container storage, so the
@@ -69,5 +78,5 @@ iac() {
     --network=host \
     --tmpfs /tmp \
     --userns=keep-id:uid=$(id -u),gid=$(id -g) \
-    ghcr.io/whatwedo/iac-shell:latest bash --login
+    "$image" bash --login
 }

@@ -1,4 +1,7 @@
-FROM debian:13
+# Pinned by digest, not just by tag: `debian:13` is a moving target that picks up
+# every point release. The digest is what makes two builds of this file start from
+# the same bytes. Bump the tag and the digest together.
+FROM debian:13.7@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
 
 ENV HOME=/home/iac-admin
 ARG USER_ID=1000
