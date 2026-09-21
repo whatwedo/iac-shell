@@ -31,7 +31,6 @@ BASH
 
 cat >> /etc/bash.bashrc <<'BASH'
 source /opt/iac-shell/bin/findup.sh
-source /opt/iac-shell/bin/ssh.sh
 BASH
 
 # Start ssh-agent, unless one is already reachable. `ssh-add -K` loads the
