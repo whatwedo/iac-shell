@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Versions of everything we fetch from outside Debian. Every one of these is an
+# exact version on purpose: with them floating, two builds of the same commit
+# produced different shells, and there was no way to say which tools a given
+# image held. Bump them here, in a commit, so the change is reviewable.
+NODE_MAJOR=24
+PRETTIER_VERSION=3.9.8
+NVIM_VERSION=v0.12.5
+# sha256 of nvim-linux-x86_64.tar.gz at that tag. A release asset can be
+# replaced; the checksum is what actually pins the bytes.
+NVIM_SHA256=bce0f56eda1f1b1db6eee8f4133d7a38813ea07933837dd1777411ca384c6875
+
 # Install OS packages, node, podman CLI and npm tools.
 apt-get update
 
@@ -32,7 +43,7 @@ curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
   -o /etc/apt/keyrings/nodesource.asc
 chmod a+r /etc/apt/keyrings/nodesource.asc
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/nodesource.asc] \
-  https://deb.nodesource.com/node_24.x nodistro main" \
+  https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" \
   >/etc/apt/sources.list.d/nodesource.list
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nodejs
@@ -61,11 +72,11 @@ apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends 1password-cli
 
 # npm global tools
-npm install -g prettier
+npm install -g "prettier@${PRETTIER_VERSION}"
 
-# Install latest stable Neovim
-NVIM_TAG=$(curl -fsSL "https://api.github.com/repos/neovim/neovim/releases/latest" | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": "\(.*\)".*/\1/')
-curl -fsSL "https://github.com/neovim/neovim/releases/download/${NVIM_TAG}/nvim-linux-x86_64.tar.gz" -o /tmp/nvim.tar.gz
+# Neovim, at the pinned release rather than whatever "latest" resolves to today.
+curl -fsSL "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/nvim-linux-x86_64.tar.gz" -o /tmp/nvim.tar.gz
+echo "${NVIM_SHA256}  /tmp/nvim.tar.gz" | sha256sum -c -
 tar -xzf /tmp/nvim.tar.gz -C /tmp
 cp -r /tmp/nvim-linux-x86_64/* /usr/local/
 rm -rf /tmp/nvim.tar.gz /tmp/nvim-linux-x86_64
