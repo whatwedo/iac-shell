@@ -44,8 +44,7 @@ iac() {
     return 1
   fi
 
-  # Passed by name below so the token is inherited, never shown in ps.
-  export OP_SERVICE_ACCOUNT_TOKEN
+  local -x OP_SERVICE_ACCOUNT_TOKEN
   OP_SERVICE_ACCOUNT_TOKEN="$(op read "${IAC_OP_SERVICE_ACCOUNT_REF:-op://Private/iac-shell-sa/credential}")" || {
     echo "iac: could not read the service account token from 1Password" >&2
     return 1
