@@ -153,10 +153,6 @@ Host *
   IdentitiesOnly yes
 ```
 
-### Helper Commands
-
-**go**: does `ssh` and `sudo su -` in one single command, usage: `go my-server`
-
 ## Open Source ❤️
 
 <p align="left">
