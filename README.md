@@ -123,49 +123,6 @@ In playbooks, look secrets up from 1Password:
 > Read values once into facts, as above. Every lookup shells out to `op` and counts
 > against the service account's rate limit.
 
-### Backups (borg)
-
-`borg` reaches the repositories over SSH, with the same keys as everything else,
-so the shell can inspect and restore from a backup without touching the host that
-made it. Point it at a repo:
-
-```sh
-export BORG_REPO='ssh://borg@backup.example.com/./repos/myhost'
-export BORG_PASSCOMMAND='/usr/bin/op read op://Infra/borg-myhost/password'
-export BORG_RSH='ssh -o IdentitiesOnly=yes -i ~/.ssh/iac.pub'
-```
-
-> `BORG_PASSCOMMAND` runs without a shell, so use an absolute path and no `~` or
-> pipes. `BORG_PASSPHRASE`, if set, silently wins over it.
-
-With `BORG_REPO` set, `::` means the repo and `::name` one archive in it:
-
-```sh
-borg list                       # every archive, oldest first — so the last line is the newest
-borg info ::                    # repo totals: original / compressed / deduplicated size
-borg info ::myhost-2026-09-18   # one archive: when it ran, how long it took, what it cost
-borg list ::myhost-2026-09-18   # the files in it
-borg check --repository-only    # verify repo consistency without reading all the data
-```
-
-Restore by extracting. Borg writes paths relative to the working directory, so
-`cd` somewhere scratch first — never into `/` or the repo you are working on:
-
-```sh
-mkdir -p /tmp/restore && cd /tmp/restore
-borg extract --dry-run --list ::myhost-2026-09-18 var/lib/something   # what would land
-borg extract ::myhost-2026-09-18 var/lib/something
-```
-
-`/tmp` is a tmpfs, so a restore staged there disappears with the container. Extract
-under `/workspace` instead when you need to keep it.
-
-`borg mount` is **not** available: it needs FUSE, which would mean handing the
-container `/dev/fuse` and `SYS_ADMIN`. Use `borg extract` instead.
-
-The image carries Debian 13's borg (1.4.x), which speaks to any borg 1.x
-`borg serve`. A repository created by borg 2 cannot be read by it.
-
 ### SSH keys
 
 Keys stored in 1Password are used by default; the host's agent socket is mounted in
