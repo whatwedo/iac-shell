@@ -66,7 +66,7 @@ iac() {
     -e HOST_WORKSPACE="$PWD" \
     -v "$op_agent_sock":/home/iac-admin/.1password/agent.sock \
     -e OP_SERVICE_ACCOUNT_TOKEN \
-    -v iac-shell-history:/home/iac-admin/.history \
+    -v iac-shell-home:/home/iac-admin/ \
     --cap-add=NET_RAW \
     --network=host \
     --tmpfs /tmp \
