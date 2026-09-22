@@ -66,13 +66,29 @@ cd ~/git/whatwedo/some-infra-repo
 iac
 ```
 
-Pass `--pull` to fetch the latest image before starting:
+Arguments after `--` are passed straight through to `podman run`. `--pull`
+re-fetches the pinned image, which podman does on its own when it is missing.
+
+## Image versions
+
+`iac` runs one image, pinned by digest in `source.sh`, so everyone on the same
+commit of this repository runs the same tools.
+
+Every build is pushed under an immutable `YYYY-MM-DD-<sha>-<build>` tag, and the
+workflow opens a **`chore: bump image pin`** PR pointing `source.sh` at it. Merge
+it, then `git pull` your clone to pick the new image up.
+
+To go back a version, check the repository out at it and re-source:
 
 ```sh
-iac --pull
+git -C ~/git/whatwedo/iac-shell.git checkout <commit>
+source ~/git/whatwedo/iac-shell.git/source.sh
 ```
 
-Arguments after `--` are passed straight through to `podman run`.
+Tool versions are pinned at the top of `container/scripts/install-packages.sh`,
+in `container/scripts/install-ansible.sh` and in the `Containerfile`. Bump them in
+a PR; merging builds a new image. Debian's own apt packages stay unpinned, so
+security updates keep flowing.
 
 ## Tools
 
