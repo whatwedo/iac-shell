@@ -28,6 +28,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   jq \
   bash-completion \
   rsync \
+  borgbackup \
   ssh \
   sudo \
   lsb-release \

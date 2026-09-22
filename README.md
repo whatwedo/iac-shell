@@ -4,6 +4,7 @@ shell in a container with tools for managing our infrastructure:
 
 - ansible
 - molecule (ansible testing)
+- borg (inspect and restore from our remote backups)
 - prettier, yamllint, ...
 
 ## Requirements
@@ -74,7 +75,13 @@ Pass `--pull` to fetch the latest image before starting:
 iac --pull
 ```
 
-Arguments after `--` are passed straight through to `podman run`.
+Arguments after `--` are passed straight through to `podman run`. They land just
+before the image name, so they can also override the defaults `iac` sets:
+
+```sh
+iac -- -v /srv/backups:/srv/backups:ro   # mount something extra
+iac -- -w /workspace/roles               # start somewhere other than /workspace
+```
 
 ## Tools
 
@@ -115,16 +122,6 @@ In playbooks, look secrets up from 1Password:
 
 > Read values once into facts, as above. Every lookup shells out to `op` and counts
 > against the service account's rate limit.
-
-For borg, in the infra repo:
-
-```sh
-export BORG_PASSCOMMAND='/usr/bin/op read op://Infra/borg-myhost/password'
-export BORG_RSH='ssh -o IdentitiesOnly=yes -i ~/.ssh/iac.pub'
-```
-
-> `BORG_PASSCOMMAND` runs without a shell, so use an absolute path and no `~` or
-> pipes. `BORG_PASSPHRASE`, if set, silently wins over it.
 
 ### SSH keys
 
