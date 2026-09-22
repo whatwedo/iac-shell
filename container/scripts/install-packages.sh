@@ -29,6 +29,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   bash-completion \
   rsync \
   borgbackup \
+  mariadb-client \
   ssh \
   sudo \
   lsb-release \
