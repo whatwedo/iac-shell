@@ -61,7 +61,6 @@ iac() {
     -v "$PWD":/workspace \
     -w /workspace \
     -e HOST_WORKSPACE="$PWD" \
-    -v /dev/bus/usb:/dev/bus/usb \
     -v "$op_agent_sock":/home/iac-admin/.1password/agent.sock \
     -e OP_SERVICE_ACCOUNT_TOKEN \
     -v iac-shell-history:/home/iac-admin/.history \

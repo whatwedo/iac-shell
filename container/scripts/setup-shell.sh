@@ -33,8 +33,8 @@ cat >> /etc/bash.bashrc <<'BASH'
 source /opt/iac-shell/bin/findup.sh
 BASH
 
-# Start ssh-agent, unless one is already reachable. `ssh-add -K` loads the
-# YubiKey's resident keys into it.
+# Start ssh-agent, unless one is already reachable, so a key added by hand and
+# the `IdentityAgent SSH_AUTH_SOCK` opt-out below have an agent to talk to.
 cat >> /etc/bash.bashrc <<'BASH'
 [ -S "${SSH_AUTH_SOCK:-}" ] || eval $(ssh-agent -s) > /dev/null
 BASH

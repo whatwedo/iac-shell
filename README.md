@@ -130,10 +130,11 @@ Keys stored in 1Password are used by default; the host's agent socket is mounted
 and applied to every host via `/etc/ssh/ssh_config.d/10-1password.conf`. Approval
 prompts appear on the host.
 
-The YubiKey still works alongside it, on the shell's own agent:
+A key added by hand lands in the shell's own agent, which that `IdentityAgent`
+shadows. Point a host back at it explicitly:
 
 ```sh
-ssh-add -K          # load resident FIDO2 keys from the token
+ssh-add ~/.ssh/some-key
 ssh -o IdentityAgent=SSH_AUTH_SOCK my-server
 ```
 

@@ -29,7 +29,6 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   bash-completion \
   rsync \
   ssh \
-  libfido2-1 \
   sudo \
   lsb-release \
   python3 python3-pip python3-venv build-essential
