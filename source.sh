@@ -45,7 +45,7 @@ iac() {
   fi
 
   local -x OP_SERVICE_ACCOUNT_TOKEN
-  OP_SERVICE_ACCOUNT_TOKEN="$(op read "${IAC_OP_SERVICE_ACCOUNT_REF:-op://Private/iac-shell-sa/credential}")" || {
+  OP_SERVICE_ACCOUNT_TOKEN="$(op read "op://Private/iac-shell-sa/credential")" || {
     echo "iac: could not read the service account token from 1Password" >&2
     return 1
   }

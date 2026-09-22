@@ -49,12 +49,14 @@ Secrets come from a service account:
 
 1. Create a vault (`Infra` in the examples below) for the shared secrets. Service
    accounts **cannot** read Private, Personal, Employee or the default Shared vault.
-2. Create a service account with `read_items` on it. Vault permissions are fixed
-   at creation.
-3. Save its token to your own vault, e.g. `op://Private/iac-shell-sa/credential`.
+2. Under **Developer > Service Accounts**, create one named `iac-shell-sa` and
+   grant it `read_items` on that vault only. Vault permissions are fixed at
+   creation and cannot be changed afterwards.
+3. Save the generated token straight into your own Private vault from the same
+   dialog — the item is named after the service account, giving
+   `op://Private/iac-shell-sa/credential`, which is the reference `iac` expects.
 
 `iac` reads that token at launch and passes it in, so nothing is stored on disk.
-Override the reference with `IAC_OP_SERVICE_ACCOUNT_REF`.
 
 ## Usage
 
