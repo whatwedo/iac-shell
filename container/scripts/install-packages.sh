@@ -29,7 +29,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   bash-completion \
   rsync \
   borgbackup \
-  mariadb-client \
+  mariadb-client postgresql-client \
   wipe \
   ssh \
   sudo \
